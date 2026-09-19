@@ -6,6 +6,7 @@ overlay/bin/
 # Generated packages: they are published in the GitHub Releases, not in the repository
 *.vsix
 install-virtual-whip.bat
+SHA256SUMS.txt
 
 # VS Code tests
 .vscode-test/

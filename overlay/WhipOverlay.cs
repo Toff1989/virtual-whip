@@ -10,9 +10,13 @@
 //
 // Protocol with the VS Code extension:
 //   config : environment variable WHIP_CONFIG (JSON)
-//   stdin  : SHOW | HIDE | CRACK | STATUS | QUIT (one command per line)
+//   stdin  : SHOW | HIDE | CRACK | STATUS | QUIT | CONFIG:<base64 utf8 JSON> (one command per line)
+//            CONFIG applies the settings that need no restart (appearance, sensitivity, ...)
 //   stdout : OVERLAY_READY, WHIP_MESSAGE:<base64 utf8>, WHIP_ANCHOR:<fx>,<fy>
 //            and "[overlay] ..." log lines
+//
+// Other modes:  --snapshot out.png   draws a scene into a PNG, without any window
+//               --selftest           runs the built-in checks (gesture detection, ...) and exits
 //
 // Built with the csc.exe that ships with Windows (C# 5): see scripts/build-overlay.js
 
@@ -214,6 +218,42 @@ sealed class LayerWindow : Form
     }
 }
 
+// A position of the cursor at a given time (t in milliseconds).
+struct Sample { public double x, y, t; }
+
+// Detection of the crack gesture from the most recent cursor positions. Pure (no window, no
+// clock): checked by "WhipOverlay.exe --selftest".
+static class Gesture
+{
+    public const double MIN_SPEED = 3.5;      // px/ms, floor of the sensitivity setting
+    public const double MIN_DISTANCE = 90;    // px travelled
+    public const double MAX_DURATION = 120;   // ms: a flick is quick
+    public const double WINDOW_MS = 150;      // how long a position stays in the sample window
+
+    public static bool Evaluate(IList<Sample> samples, double sensitivity)
+    {
+        if (samples.Count < 3) return false;
+        double totalLen = 0;
+        double maxSpeed = 0;
+        for (int i = 1; i < samples.Count; i++)
+        {
+            double dx = samples[i].x - samples[i - 1].x;
+            double dy = samples[i].y - samples[i - 1].y;
+            double dist = Math.Sqrt(dx * dx + dy * dy);
+            totalLen += dist;
+            double dt = samples[i].t - samples[i - 1].t;
+            if (dt > 0)
+            {
+                double speed = dist / dt;
+                if (speed > maxSpeed) maxSpeed = speed;
+            }
+        }
+        double duration = samples[samples.Count - 1].t - samples[0].t;
+        double threshold = Math.Max(MIN_SPEED, sensitivity);
+        return totalLen >= MIN_DISTANCE && duration <= MAX_DURATION && maxSpeed >= threshold;
+    }
+}
+
 sealed class Overlay : ApplicationContext
 {
     // ---------- Physics settings ----------
@@ -225,17 +265,17 @@ sealed class Overlay : ApplicationContext
     const double MAX_MAX_LENGTH = 3000;
     const double REACH_FACTOR = 0.985;       // the tip never goes beyond 98.5% of the rope length
 
-    const double MIN_CRACK_SPEED = 3.5;      // px/ms
-    const double MIN_CRACK_DISTANCE = 90;    // px
-    const double MAX_CRACK_DURATION = 120;   // ms
-    const double SAMPLE_WINDOW_MS = 150;
     const int ANCHOR_MARGIN = 60;
     const int PEG_WINDOW = 56;               // side of the anchor point window
     const int PEG_GRAB_RADIUS = 26;          // grab radius around the anchor point
     const int VK_LBUTTON = 0x01;
+    const int VK_RBUTTON = 0x02;
+    const int VK_MBUTTON = 0x04;
+    const int VK_SHIFT = 0x10;
+    const int VK_CONTROL = 0x11;
+    const int VK_MENU = 0x12;                // the Alt key
 
     struct Node { public double x, y, px, py; }
-    struct Sample { public double x, y, t; }
 
     readonly LayerWindow whip = new LayerWindow(true);
     readonly LayerWindow peg = new LayerWindow(false);
@@ -245,7 +285,8 @@ sealed class Overlay : ApplicationContext
     readonly StreamWriter stdout;
 
     readonly List<string> messages = new List<string>();
-    readonly double sensitivity = 3.5;
+    double sensitivity = 3.5;
+    string gestureModifier = "none";         // none | ctrl | shift | alt: key to hold for the crack
     readonly double maxLength = DEFAULT_MAX_LENGTH;
     readonly string anchorPosition = "bottom-right";
     bool hasCustomAnchor;
@@ -308,21 +349,13 @@ sealed class Overlay : ApplicationContext
                     new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
                 if (cfg != null)
                 {
+                    ApplyLiveSettings(cfg);
+                    // Settings that only count at startup (the extension restarts the overlay to change them).
                     object v;
-                    if (cfg.TryGetValue("sensitivity", out v) && v != null) sensitivity = Convert.ToDouble(v, CultureInfo.InvariantCulture);
                     if (cfg.TryGetValue("maxLength", out v) && v != null) maxLength = Convert.ToDouble(v, CultureInfo.InvariantCulture);
                     if (cfg.TryGetValue("anchorPosition", out v) && v != null) anchorPosition = v.ToString();
                     if (cfg.TryGetValue("audioFilePath", out v) && v != null) audioPath = v.ToString();
-                    if (cfg.TryGetValue("messages", out v) && v is IEnumerable)
-                    {
-                        foreach (object m in (IEnumerable)v)
-                        {
-                            if (m != null && m.ToString().Length > 0) messages.Add(m.ToString());
-                        }
-                    }
                     if (cfg.TryGetValue("volume", out v) && v != null) volume = (int)Clamp(Convert.ToDouble(v, CultureInfo.InvariantCulture), 0, 100);
-                    if (cfg.TryGetValue("cooldownMs", out v) && v != null) cooldownMs = Clamp(Convert.ToDouble(v, CultureInfo.InvariantCulture), 100, 5000);
-                    if (cfg.TryGetValue("appearance", out v)) ReadAppearance(v as Dictionary<string, object>);
                     if (cfg.TryGetValue("anchorCustom", out v))
                     {
                         Dictionary<string, object> a = v as Dictionary<string, object>;
@@ -382,6 +415,62 @@ sealed class Overlay : ApplicationContext
         reader.Start();
 
         stdout.WriteLine("OVERLAY_READY");
+    }
+
+    // ---------- Settings that can change while the overlay runs ----------
+
+    static string ParseModifier(string text)
+    {
+        switch (text)
+        {
+            case "ctrl": case "shift": case "alt": return text;
+            default: return "none";
+        }
+    }
+
+    // Read at startup and again on every CONFIG command: the running overlay is not restarted
+    // for these.
+    void ApplyLiveSettings(Dictionary<string, object> cfg)
+    {
+        object v;
+        if (cfg.TryGetValue("sensitivity", out v) && v != null) sensitivity = Convert.ToDouble(v, CultureInfo.InvariantCulture);
+        if (cfg.TryGetValue("cooldownMs", out v) && v != null) cooldownMs = Clamp(Convert.ToDouble(v, CultureInfo.InvariantCulture), 100, 5000);
+        if (cfg.TryGetValue("gestureModifier", out v) && v != null) gestureModifier = ParseModifier(v.ToString());
+        if (cfg.TryGetValue("messages", out v) && v is IEnumerable)
+        {
+            messages.Clear();
+            foreach (object m in (IEnumerable)v)
+            {
+                if (m != null && m.ToString().Length > 0) messages.Add(m.ToString());
+            }
+        }
+        if (messages.Count == 0) messages.Add("Come on, faster!");
+        if (cfg.TryGetValue("appearance", out v)) ReadAppearance(v as Dictionary<string, object>);
+    }
+
+    // CONFIG:<base64 of the UTF-8 JSON configuration>. Returns a one-line summary (for the log and the tests).
+    public string ApplyConfigCommand(string base64)
+    {
+        string json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+        Dictionary<string, object> cfg = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
+        if (cfg == null) throw new InvalidDataException("the configuration is not a JSON object");
+        ApplyLiveSettings(cfg);
+        DrawPeg(pegSurface.G);                                 // anchor point color / size
+        pegShownAt = new PointF(float.NaN, float.NaN);         // forces it to be presented again
+        return Describe();
+    }
+
+    string Describe()
+    {
+        return "sensitivity=" + sensitivity.ToString("0.###", CultureInfo.InvariantCulture) +
+            " modifier=" + gestureModifier + " cooldownMs=" + cooldownMs + " messages=" + messages.Count +
+            " thickness=" + whipThickness.ToString("0.###", CultureInfo.InvariantCulture) +
+            " base=" + ColorToHex(whipBase) + " tip=" + ColorToHex(whipTip) + " peg=" + ColorToHex(pegColor);
+    }
+
+    static string ColorToHex(Color c)
+    {
+        return "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
     }
 
     // ---------- Appearance configuration ----------
@@ -494,6 +583,12 @@ sealed class Overlay : ApplicationContext
 
     void HandleCommand(string command)
     {
+        if (command.StartsWith("CONFIG:", StringComparison.Ordinal))
+        {
+            try { Log("config updated: " + ApplyConfigCommand(command.Substring(7))); }
+            catch (Exception e) { Log("invalid CONFIG command: " + e.Message); }
+            return;
+        }
         switch (command)
         {
             case "SHOW":
@@ -523,7 +618,8 @@ sealed class Overlay : ApplicationContext
                 Log("status visible=" + visible + " dragging=" + dragging + " cursor=" + lastCursor.X + "," + lastCursor.Y +
                     " tip=" + (int)tip.X + "," + (int)tip.Y + " anchor=" + (int)anchor.X + "," + (int)anchor.Y +
                     " maxLength=" + (int)maxLength + " segments=" + segments + " screen=" + currentScreen +
-                    " surface=" + (whipSurface == null ? "none" : whipSurface.Width + "x" + whipSurface.Height));
+                    " surface=" + (whipSurface == null ? "none" : whipSurface.Width + "x" + whipSurface.Height) +
+                    " " + Describe());
                 break;
             case "QUIT":
                 Shutdown();
@@ -723,27 +819,21 @@ sealed class Overlay : ApplicationContext
 
     // ---------- Gesture (cursor speed) ----------
 
-    bool EvaluateGesture()
+    static bool KeyDown(int virtualKey)
     {
-        if (samples.Count < 3) return false;
-        double totalLen = 0;
-        double maxSpeed = 0;
-        for (int i = 1; i < samples.Count; i++)
+        return (Native.GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+    }
+
+    // The key required by the "gestureModifier" setting is held (always true when none is required).
+    bool ModifierHeld()
+    {
+        switch (gestureModifier)
         {
-            double dx = samples[i].x - samples[i - 1].x;
-            double dy = samples[i].y - samples[i - 1].y;
-            double dist = Math.Sqrt(dx * dx + dy * dy);
-            totalLen += dist;
-            double dt = samples[i].t - samples[i - 1].t;
-            if (dt > 0)
-            {
-                double speed = dist / dt;
-                if (speed > maxSpeed) maxSpeed = speed;
-            }
+            case "ctrl": return KeyDown(VK_CONTROL);
+            case "shift": return KeyDown(VK_SHIFT);
+            case "alt": return KeyDown(VK_MENU);
+            default: return true;
         }
-        double duration = samples[samples.Count - 1].t - samples[0].t;
-        double threshold = Math.Max(MIN_CRACK_SPEED, sensitivity);
-        return totalLen >= MIN_CRACK_DISTANCE && duration <= MAX_CRACK_DURATION && maxSpeed >= threshold;
     }
 
     void FireCrack(double now)
@@ -774,7 +864,10 @@ sealed class Overlay : ApplicationContext
 
         // Safety net: if Windows did not deliver the click to the anchor point window
         // (it depends on the foreground window), detect the press ourselves.
-        bool leftDown = (Native.GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+        bool leftDown = KeyDown(VK_LBUTTON);
+        // A flick made with a button held is never the whip gesture: it is a text selection, a
+        // window being dragged, a scrollbar... (the anchor point drag is handled separately).
+        bool buttonHeld = leftDown || KeyDown(VK_RBUTTON) || KeyDown(VK_MBUTTON);
         if (leftDown && !prevLeftDown && !dragging)
         {
             double pdx = cursor.X - anchor.X, pdy = cursor.Y - anchor.Y;
@@ -808,13 +901,14 @@ sealed class Overlay : ApplicationContext
         tip = ReachableTip(cursor);
 
         // Like a "mousemove" event: only sample when the cursor has moved.
-        if (!dragging && (cursor.X != lastCursor.X || cursor.Y != lastCursor.Y))
+        if (buttonHeld) samples.Clear(); // what happened with a button down must not count once it is released
+        else if (!dragging && (cursor.X != lastCursor.X || cursor.Y != lastCursor.Y))
         {
             Sample s = new Sample(); s.x = cursor.X; s.y = cursor.Y; s.t = now;
             samples.Add(s);
         }
         lastCursor = new Point(cursor.X, cursor.Y);
-        while (samples.Count > 0 && now - samples[0].t > SAMPLE_WINDOW_MS) samples.RemoveAt(0);
+        while (samples.Count > 0 && now - samples[0].t > Gesture.WINDOW_MS) samples.RemoveAt(0);
 
         // Fixed-step physics (60 Hz), whatever the timer rate.
         accumulator += now - lastTick;
@@ -826,7 +920,7 @@ sealed class Overlay : ApplicationContext
             accumulator -= PHYSICS_STEP_MS;
         }
 
-        if (!dragging && now - lastCrack > cooldownMs && EvaluateGesture())
+        if (!dragging && !buttonHeld && now - lastCrack > cooldownMs && ModifierHeld() && Gesture.Evaluate(samples, sensitivity))
         {
             FireCrack(now);
         }
@@ -1066,11 +1160,81 @@ static class Program
         }
         catch (Exception) { }
 
+        if (Array.IndexOf(args, "--selftest") >= 0) return SelfTest();
+
         int snapshot = Array.IndexOf(args, "--snapshot");
         if (snapshot >= 0 && snapshot + 1 < args.Length) return Snapshot(args, args[snapshot + 1]);
 
         Application.Run(new Overlay(false));
         return 0;
+    }
+
+    // A straight line of n cursor positions, step pixels apart and every ms milliseconds.
+    static List<Sample> Flick(int n, double step, double ms)
+    {
+        List<Sample> samples = new List<Sample>();
+        for (int i = 0; i < n; i++)
+        {
+            Sample s = new Sample();
+            s.x = 100 + i * step;
+            s.y = 200;
+            s.t = i * ms;
+            samples.Add(s);
+        }
+        return samples;
+    }
+
+    // WhipOverlay.exe --selftest: checks the logic that needs no window and prints one line per
+    // failure, then "SELFTEST OK <count>" or "SELFTEST FAILED <count>". Exit code 0 when all pass.
+    static int SelfTest()
+    {
+        StreamWriter output = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false));
+        output.NewLine = "\n";
+        int count = 0, failed = 0;
+        Action<bool, string> check = delegate (bool ok, string name)
+        {
+            count++;
+            if (ok) return;
+            failed++;
+            output.WriteLine("FAIL: " + name);
+        };
+
+        // Gesture detection (default sensitivity 3.5 px/ms, at least 90 px in at most 120 ms).
+        check(Gesture.Evaluate(Flick(8, 50, 10), 3.5), "a sharp flick cracks (5 px/ms over 350 px in 70 ms)");
+        check(!Gesture.Evaluate(Flick(8, 5, 20), 3.5), "a slow move does not crack");
+        check(!Gesture.Evaluate(Flick(4, 15, 3), 3.5), "a fast but tiny move (45 px) does not crack");
+        check(!Gesture.Evaluate(Flick(12, 50, 12), 3.5), "a fast move that lasts too long (132 ms) does not crack");
+        check(!Gesture.Evaluate(Flick(2, 200, 10), 3.5), "fewer than 3 samples never crack");
+        check(!Gesture.Evaluate(new List<Sample>(), 3.5), "no sample never cracks");
+        check(!Gesture.Evaluate(Flick(8, 50, 10), 6), "a flick slower than the sensitivity does not crack");
+        check(Gesture.Evaluate(Flick(8, 50, 10), 4.9), "a flick just faster than the sensitivity cracks");
+        check(!Gesture.Evaluate(Flick(8, 30, 10), 1), "the sensitivity cannot go below the 3.5 px/ms floor");
+        check(Gesture.Evaluate(Flick(8, 50, 10), 0), "a sensitivity of 0 falls back on the floor");
+
+        // Colors.
+        check(Overlay.ParseHex("#785032", Color.Black) == Color.FromArgb(0x78, 0x50, 0x32), "#RRGGBB color");
+        check(Overlay.ParseHex("#a5c", Color.Black) == Color.FromArgb(0xAA, 0x55, 0xCC), "#RGB color");
+        check(Overlay.ParseHex("red", Color.Black) == Color.Black, "an invalid color gives the fallback");
+
+        // Live configuration: same JSON as WHIP_CONFIG, sent as a base64 CONFIG command.
+        Overlay overlay = new Overlay(true);
+        string json = "{\"sensitivity\":7.5,\"cooldownMs\":900,\"gestureModifier\":\"ctrl\",\"messages\":[\"a\",\"b\"]," +
+            "\"appearance\":{\"whip\":{\"thickness\":12,\"colorBase\":\"#102030\"},\"anchor\":{\"color\":\"#405060\"}}}";
+        string summary = overlay.ApplyConfigCommand(Convert.ToBase64String(Encoding.UTF8.GetBytes(json)));
+        check(summary.Contains("sensitivity=7.5"), "live config: sensitivity (" + summary + ")");
+        check(summary.Contains("modifier=ctrl"), "live config: gesture modifier");
+        check(summary.Contains("cooldownMs=900"), "live config: cooldown");
+        check(summary.Contains("messages=2"), "live config: messages");
+        check(summary.Contains("thickness=12"), "live config: thickness");
+        check(summary.Contains("base=#102030"), "live config: base color");
+        check(summary.Contains("peg=#405060"), "live config: anchor color");
+        string bogus = overlay.ApplyConfigCommand(Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"gestureModifier\":\"hyper\",\"messages\":[]}")));
+        check(bogus.Contains("modifier=none"), "an unknown modifier means none");
+        check(bogus.Contains("messages=1"), "an empty message list falls back on the default message");
+
+        output.WriteLine((failed == 0 ? "SELFTEST OK " : "SELFTEST FAILED ") + (failed == 0 ? count : failed));
+        output.Flush();
+        return failed == 0 ? 0 : 1;
     }
 
     // WhipOverlay.exe --snapshot output.png [--size 640x360] [--bg #1E1E1E]

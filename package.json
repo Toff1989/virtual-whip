@@ -69,6 +69,16 @@
         "command": "virtualWhip.resetAnchor",
         "title": "%command.resetAnchor.title%",
         "category": "%command.category%"
+      },
+      {
+        "command": "virtualWhip.markClaudeTerminal",
+        "title": "%command.markClaudeTerminal.title%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "virtualWhip.diagnose",
+        "title": "%command.diagnose.title%",
+        "category": "%command.category%"
       }
     ],
     "configuration": [
@@ -128,6 +138,24 @@
             "default": "bottom-right",
             "order": 6,
             "description": "%virtualWhip.anchorPosition.description%"
+          },
+          "virtualWhip.gestureModifier": {
+            "type": "string",
+            "enum": [
+              "none",
+              "ctrl",
+              "shift",
+              "alt"
+            ],
+            "enumDescriptions": [
+              "%virtualWhip.gestureModifier.none%",
+              "%virtualWhip.gestureModifier.ctrl%",
+              "%virtualWhip.gestureModifier.shift%",
+              "%virtualWhip.gestureModifier.alt%"
+            ],
+            "default": "none",
+            "order": 7,
+            "description": "%virtualWhip.gestureModifier.description%"
           }
         }
       },
@@ -201,6 +229,13 @@
             "scope": "application",
             "order": 5,
             "markdownDescription": "%virtualWhip.reasoningEffort.description%"
+          },
+          "virtualWhip.preserveTerminalDraft": {
+            "type": "boolean",
+            "default": false,
+            "scope": "application",
+            "order": 6,
+            "markdownDescription": "%virtualWhip.preserveTerminalDraft.description%"
           }
         }
       },
@@ -395,9 +430,10 @@
     "compile:ts": "tsc -p .",
     "compile:overlay": "node scripts/build-overlay.js",
     "watch": "tsc -p . -w",
-    "test": "npm run compile:ts && node --test test/appearance.test.js test/settings.test.js test/localization.test.js test/extension.test.js",
-    "package": "npm run compile && npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository --skip-license && npm run installer",
-    "installer": "node scripts/make-installer.js"
+    "test": "npm run compile:ts && node --test test/appearance.test.js test/settings.test.js test/localization.test.js test/extension.test.js test/messageRouter.test.js test/protocol.test.js test/overlayLifecycle.test.js test/overlay.test.js test/checksums.test.js",
+    "package": "npm run compile && npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository --skip-license && npm run installer && npm run checksums",
+    "installer": "node scripts/make-installer.js",
+    "checksums": "node scripts/make-checksums.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

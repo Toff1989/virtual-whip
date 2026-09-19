@@ -24,7 +24,22 @@
   "Shadow": "Ombre",
   "Discreet slate gray, no glow.": "Gris ardoise discret, sans halo.",
 
+  "Come on, faster!": "Allez, plus vite !",
+  "Speed up, but stay precise.": "Accélère, mais reste précis.",
+  "Hurry up (without rushing)!": "Dépêche-toi (sans te précipiter) !",
+  "Go faster, but keep the quality.": "Va plus vite, mais garde la qualité.",
+  "Faster than that!": "Plus vite que ça !",
+  "We don't have all day, speed up.": "On n'a pas toute la journée, accélère.",
+
   "Virtual Whip: no Claude Code terminal found. Start `claude` in a VS Code terminal.": "Virtual Whip : aucun terminal Claude Code trouvé. Lance `claude` dans un terminal VS Code.",
+  "Virtual Whip: the Claude Code chat panel cannot receive messages. Enable the setting `claudeCode.useTerminal` to use Claude Code in a terminal.": "Virtual Whip : le panneau de chat de Claude Code ne peut pas recevoir de messages. Active le réglage `claudeCode.useTerminal` pour utiliser Claude Code dans un terminal.",
+  "Virtual Whip: the message went to Copilot chat because no Claude Code terminal was detected. If Claude Code runs in a terminal without shell integration (such as cmd.exe), run \"Virtual Whip: Use This Terminal for Claude Code\" in it.": "Virtual Whip : le message est parti vers le chat Copilot faute de terminal Claude Code détecté. Si Claude Code tourne dans un terminal sans intégration shell (cmd.exe, par exemple), lance « Virtual Whip: Utiliser ce terminal pour Claude Code » dedans.",
+  "Virtual Whip: sending to Copilot chat failed ({0}).": "Virtual Whip : l'envoi vers le chat Copilot a échoué ({0}).",
+  "Virtual Whip: there is no active terminal.": "Virtual Whip : il n'y a pas de terminal actif.",
+  "Virtual Whip: this terminal is now treated as a Claude Code terminal.": "Virtual Whip : ce terminal est désormais traité comme un terminal Claude Code.",
+  "Virtual Whip: this terminal is no longer marked as a Claude Code terminal.": "Virtual Whip : ce terminal n'est plus marqué comme un terminal Claude Code.",
+  "Virtual Whip: the diagnostics were written to the \"Virtual Whip\" output.": "Virtual Whip : le diagnostic a été écrit dans la sortie « Virtual Whip ».",
+  "Show Log": "Afficher le journal",
   "Virtual Whip: the overlay only works on Windows.": "Virtual Whip : l'overlay ne fonctionne que sous Windows.",
   "Virtual Whip: the overlay is not compiled. Run \"npm run compile\" in the project folder.": "Virtual Whip : overlay non compilé. Lance « npm run compile » dans le dossier du projet.",
   "Virtual Whip: unable to start the overlay ({0})": "Virtual Whip : impossible de démarrer l'overlay ({0})"

@@ -8,6 +8,8 @@
   "command.choosePreset.title": "Choose a Style (leather, neon, fire...)",
   "command.resetAppearance.title": "Reset Appearance",
   "command.resetAnchor.title": "Reset Anchor Point Position",
+  "command.markClaudeTerminal.title": "Use This Terminal for Claude Code",
+  "command.diagnose.title": "Diagnose Message Delivery",
 
   "section.general": "Virtual Whip: General",
   "section.messages": "Virtual Whip: Message Delivery",
@@ -25,9 +27,14 @@
   "virtualWhip.anchorPosition.bottom-left": "Bottom left.",
   "virtualWhip.anchorPosition.top-right": "Top right.",
   "virtualWhip.anchorPosition.top-left": "Top left.",
+  "virtualWhip.gestureModifier.description": "Key to hold while flicking the mouse for the whip to crack. Holding a key avoids accidental cracks when you move the mouse quickly. Whatever the value, a flick made while a mouse button is held (selecting text, dragging a window) never cracks the whip.",
+  "virtualWhip.gestureModifier.none": "No key needed: a sharp flick is enough.",
+  "virtualWhip.gestureModifier.ctrl": "Hold Ctrl while flicking.",
+  "virtualWhip.gestureModifier.shift": "Hold Shift while flicking.",
+  "virtualWhip.gestureModifier.alt": "Hold Alt while flicking.",
 
-  "virtualWhip.messages.description": "Messages sent at random to the AI when the whip cracks. **User settings only**: a project folder cannot change them (these texts are typed into your terminal).",
-  "virtualWhip.target.description": "Where the whip's messages are sent. The focus is never changed.",
+  "virtualWhip.messages.description": "Messages sent at random to the AI when the whip cracks. **User settings only**: a project folder cannot change them (these texts are typed into your terminal). Left as it is (or empty), the built-in messages are used, in the display language of VS Code when a translation exists.",
+  "virtualWhip.target.description": "Where the whip's messages are sent. The focus is never changed. Claude Code is detected through the shell integration of VS Code: in a terminal without it (cmd.exe, for one), run the command \"Virtual Whip: Use This Terminal for Claude Code\".",
   "virtualWhip.target.auto": "Claude Code terminal if one is detected, otherwise Copilot chat.",
   "virtualWhip.target.claude": "Claude Code terminal only (the active terminal if none is detected).",
   "virtualWhip.target.copilot": "Copilot chat only (it must have been clicked at least once in the window).",
@@ -38,6 +45,7 @@
   "virtualWhip.reasoningEffort.low": "Minimal reasoning (fastest).",
   "virtualWhip.reasoningEffort.medium": "Medium reasoning.",
   "virtualWhip.reasoningEffort.high": "High reasoning.",
+  "virtualWhip.preserveTerminalDraft.description": "**Experimental. Claude Code terminal only.** Sets aside what you have typed in Claude Code's prompt while the whip's message is sent, then puts it back, instead of gluing the message to your draft. It types Claude Code's own line-editing shortcuts (`Ctrl+E`, `Ctrl+U`, `Ctrl+Y`) into the terminal. Only the last line of a draft spanning several lines is preserved. **User settings only.**",
 
   "virtualWhip.appearance.preset.description": "Built-in style for the whip, the anchor point and the effect. **Appearance settings below that you change take precedence over the style**; the ones you have not touched follow the style. Command: *Virtual Whip: Choose a Style*.",
   "virtualWhip.appearance.preset.leather": "Leather: understated brown leather whip.",

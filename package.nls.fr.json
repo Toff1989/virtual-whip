@@ -8,6 +8,8 @@
   "command.choosePreset.title": "Choisir un style (cuir, néon, feu...)",
   "command.resetAppearance.title": "Réinitialiser l'apparence",
   "command.resetAnchor.title": "Réinitialiser la position du point d'ancrage",
+  "command.markClaudeTerminal.title": "Utiliser ce terminal pour Claude Code",
+  "command.diagnose.title": "Diagnostiquer l'envoi des messages",
 
   "section.general": "Virtual Whip : général",
   "section.messages": "Virtual Whip : envoi des messages",
@@ -25,9 +27,14 @@
   "virtualWhip.anchorPosition.bottom-left": "En bas à gauche.",
   "virtualWhip.anchorPosition.top-right": "En haut à droite.",
   "virtualWhip.anchorPosition.top-left": "En haut à gauche.",
+  "virtualWhip.gestureModifier.description": "Touche à maintenir enfoncée pendant le geste de souris pour que le fouet claque. Maintenir une touche évite les claquements accidentels quand tu bouges vite la souris. Quelle que soit la valeur, un geste fait bouton de souris enfoncé (sélection de texte, déplacement d'une fenêtre) ne fait jamais claquer le fouet.",
+  "virtualWhip.gestureModifier.none": "Aucune touche : un geste sec suffit.",
+  "virtualWhip.gestureModifier.ctrl": "Maintenir Ctrl pendant le geste.",
+  "virtualWhip.gestureModifier.shift": "Maintenir Maj pendant le geste.",
+  "virtualWhip.gestureModifier.alt": "Maintenir Alt pendant le geste.",
 
-  "virtualWhip.messages.description": "Messages envoyés au hasard à l'IA quand le fouet claque. **Paramètres utilisateur uniquement** : un dossier de projet ne peut pas les modifier (ces textes sont tapés dans ton terminal).",
-  "virtualWhip.target.description": "Destination des messages envoyés par le fouet. Le focus n'est jamais modifié.",
+  "virtualWhip.messages.description": "Messages envoyés au hasard à l'IA quand le fouet claque. **Paramètres utilisateur uniquement** : un dossier de projet ne peut pas les modifier (ces textes sont tapés dans ton terminal). Laissée telle quelle (ou vide), la liste intégrée est utilisée, dans la langue d'affichage de VS Code quand une traduction existe.",
+  "virtualWhip.target.description": "Destination des messages envoyés par le fouet. Le focus n'est jamais modifié. Claude Code est détecté grâce à l'intégration shell de VS Code : dans un terminal qui n'en a pas (cmd.exe, par exemple), lance la commande « Virtual Whip: Utiliser ce terminal pour Claude Code ».",
   "virtualWhip.target.auto": "Terminal Claude Code s'il est détecté, sinon chat Copilot.",
   "virtualWhip.target.claude": "Uniquement le terminal Claude Code (à défaut de détection, le terminal actif).",
   "virtualWhip.target.copilot": "Uniquement le chat Copilot (il doit avoir été cliqué au moins une fois dans la fenêtre).",
@@ -38,6 +45,7 @@
   "virtualWhip.reasoningEffort.low": "Réflexion minimale (le plus rapide).",
   "virtualWhip.reasoningEffort.medium": "Réflexion moyenne.",
   "virtualWhip.reasoningEffort.high": "Réflexion élevée.",
+  "virtualWhip.preserveTerminalDraft.description": "**Expérimental. Terminal Claude Code uniquement.** Met de côté ce que tu as tapé dans le prompt de Claude Code pendant l'envoi du message du fouet, puis le remet, au lieu de coller le message à ton brouillon. Tape dans le terminal les raccourcis d'édition de Claude Code (`Ctrl+E`, `Ctrl+U`, `Ctrl+Y`). Seule la dernière ligne d'un brouillon sur plusieurs lignes est préservée. **Paramètres utilisateur uniquement.**",
 
   "virtualWhip.appearance.preset.description": "Style prédéfini du fouet, du point d'ancrage et de l'effet. **Les réglages d'apparence ci-dessous que tu modifies prennent le pas sur le style** ; ceux que tu n'as pas touchés suivent le style. Commande : *Virtual Whip : Choisir un style*.",
   "virtualWhip.appearance.preset.leather": "Cuir : fouet de cuir brun, sobre.",

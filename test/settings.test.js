@@ -15,8 +15,12 @@ for (const section of pkg.contributes.configuration) {
 
 const state = { global: {}, workspace: {}, folders: [], updates: [] };
 
+// A stand-in translation: what l10n.t() is asked for is easy to see in the result.
+const translate = (text) => `[fr] ${text}`;
+
 const vscodeMock = {
     ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
+    l10n: { t: translate },
     workspace: {
         get workspaceFolders() { return state.folders; },
         getConfiguration(section) {
@@ -112,11 +116,75 @@ test('the built-in sound is used when no file is configured', () => {
     assert.deepEqual(config.appearance, PRESETS.leather.appearance);
 });
 
-test('the default messages are the English ones from package.json', () => {
+test('with no messages of its own, the whip uses the built-in ones, in the display language', () => {
     reset();
     const { messages } = settings.readWhipConfig('C:\\ext', undefined);
     assert.equal(messages.length, 6);
-    assert.equal(messages[0], 'Come on, faster!');
+    assert.deepEqual(messages, defaults['virtualWhip.messages'].map(translate));
+});
+
+test('the user\'s own messages are used as written, in any scope, never translated', () => {
+    reset();
+    state.global[key('messages')] = ['Move it!', 'Now!'];
+    assert.deepEqual(settings.readWhipConfig('C:\\ext', undefined).messages, ['Move it!', 'Now!']);
+
+    // an empty list (or blank entries) is "nothing written": the built-in messages come back
+    state.global[key('messages')] = [];
+    assert.equal(settings.readWhipConfig('C:\\ext', undefined).messages.length, 6);
+    state.global[key('messages')] = ['  '];
+    assert.equal(settings.readWhipConfig('C:\\ext', undefined).messages.length, 6);
+});
+
+test('the gesture modifier is read, and anything unknown means no key', () => {
+    reset();
+    assert.equal(settings.readWhipConfig('C:\\ext', undefined).gestureModifier, 'none');
+    for (const modifier of ['ctrl', 'shift', 'alt', 'none']) {
+        state.global[key('gestureModifier')] = modifier;
+        assert.equal(settings.readWhipConfig('C:\\ext', undefined).gestureModifier, modifier);
+    }
+    for (const bad of ['hyper', 'CTRL', '', 3, null]) {
+        state.global[key('gestureModifier')] = bad;
+        assert.equal(settings.readWhipConfig('C:\\ext', undefined).gestureModifier, 'none', String(bad));
+    }
+});
+
+test('the gesture modifier is declared with exactly the values the code accepts', () => {
+    const declared = defaults['virtualWhip.gestureModifier'];
+    assert.equal(declared, 'none');
+    const property = pkg.contributes.configuration.flatMap((s) => Object.entries(s.properties))
+        .find(([name]) => name === 'virtualWhip.gestureModifier')[1];
+    assert.deepEqual(property.enum, ['none', 'ctrl', 'shift', 'alt']);
+    assert.equal(property.enumDescriptions.length, property.enum.length);
+});
+
+// ---------- What a change of setting requires from the overlay ----------
+
+const topLevel = (name) => name.replace(/^virtualWhip\./, '').split('.')[0];
+
+test('every declared setting is classified once: applied live, restart, or extension only', () => {
+    const lists = { live: settings.LIVE_SETTINGS, restart: settings.RESTART_SETTINGS, extension: settings.EXTENSION_SETTINGS };
+    const all = Object.values(lists).flat();
+    assert.equal(new Set(all).size, all.length, 'a setting is in two lists');
+
+    const declared = new Set(Object.keys(defaults).map(topLevel));
+    for (const name of declared) {
+        assert.ok(all.includes(name), `virtualWhip.${name} is declared in package.json but is in none of the lists of settings.ts`);
+    }
+    for (const name of all) {
+        assert.ok(declared.has(name), `"${name}" is in a list of settings.ts but is not declared in package.json`);
+    }
+});
+
+test('a change is a restart if any restart setting changed, else live if any live one did, else nothing', () => {
+    const changed = (...names) => (key) => names.some((name) => key === name || name.startsWith(`${key}.`));
+    assert.equal(settings.classifyConfigChange(changed('maxLength')), 'restart');
+    assert.equal(settings.classifyConfigChange(changed('sound.volume')), 'restart');
+    assert.equal(settings.classifyConfigChange(changed('whip.thickness')), 'live');
+    assert.equal(settings.classifyConfigChange(changed('appearance.preset')), 'live');
+    assert.equal(settings.classifyConfigChange(changed('whip.thickness', 'audioFilePath')), 'restart', 'restart wins over live');
+    assert.equal(settings.classifyConfigChange(changed('target')), 'none');
+    assert.equal(settings.classifyConfigChange(changed('showOnlyWhenFocused')), 'none');
+    assert.equal(settings.classifyConfigChange(() => false), 'none');
 });
 
 test('${workspaceFolder} is replaced in the sound path', () => {
@@ -135,8 +203,11 @@ test('the custom anchor point position is passed on', () => {
 test('default send options and visibility', () => {
     reset();
     assert.deepEqual(settings.readSendOptions(), {
-        target: 'auto', interrupt: true, interruptDelayMs: 200, reasoningEffort: 'unchanged'
+        target: 'auto', interrupt: true, interruptDelayMs: 200, reasoningEffort: 'unchanged', preserveDraft: false
     });
+    state.global[key('preserveTerminalDraft')] = true;
+    assert.equal(settings.readSendOptions().preserveDraft, true);
+    state.global = {};
     assert.equal(settings.showOnlyWhenFocused(), true);
     state.global[key('showOnlyWhenFocused')] = false;
     assert.equal(settings.showOnlyWhenFocused(), false);

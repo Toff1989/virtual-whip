@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { PRESETS } = require('../out/appearance');
+const { DEFAULT_MESSAGES } = require('../out/messages');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -88,8 +89,11 @@ for (const text of sources) {
         literals.add(match[2].replace(/\\(['"`\\])/g, '$1'));
     }
 }
-// Preset labels and descriptions are passed to l10n.t() through a variable.
-const presetTexts = new Set(Object.values(PRESETS).flatMap((p) => [p.label, p.description]));
+// Preset labels and descriptions, and the built-in messages, are passed to l10n.t() through a variable.
+const presetTexts = new Set([
+    ...Object.values(PRESETS).flatMap((p) => [p.label, p.description]),
+    ...DEFAULT_MESSAGES
+]);
 
 test('every vscode.l10n.t() string has a French translation', () => {
     assert.ok(literals.size >= 10, 'expected to find the l10n.t() calls of the extension');

@@ -93,8 +93,8 @@ test('short colors (#RGB) are accepted', () => {
     assert.equal(resolveAppearance(DEFAULT_PRESET, { anchor: { color: '#a5c' } }).anchor.color, '#a5c');
 });
 
-test('security: settings whose text is typed into a terminal are user-only', () => {
-    for (const name of ['virtualWhip.messages', 'virtualWhip.target', 'virtualWhip.reasoningEffort']) {
+test('security: settings whose text or keys are typed into a terminal are user-only', () => {
+    for (const name of ['virtualWhip.messages', 'virtualWhip.target', 'virtualWhip.reasoningEffort', 'virtualWhip.preserveTerminalDraft']) {
         assert.equal(properties[name].scope, 'application', `${name} must have the "application" scope`);
     }
 });

@@ -32,14 +32,15 @@ jobs:
       - name: Tests
         run: npm test
 
-      - name: Package the .vsix and the standalone installer
+      - name: Package the .vsix, the standalone installer and the checksums
         run: npm run package
 
-      - name: Archive the .vsix and the installer
+      - name: Archive the .vsix, the installer and the checksums
         uses: actions/upload-artifact@v4
         with:
           name: virtual-whip
           path: |
             *.vsix
             install-virtual-whip.bat
+            SHA256SUMS.txt
           if-no-files-found: error

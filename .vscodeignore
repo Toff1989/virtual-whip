@@ -15,3 +15,5 @@ out/**/*.map
 *.vsix
 VERSION.txt
 SECURITY.md
+SHA256SUMS.txt
+overlay/bin/*.g.cs

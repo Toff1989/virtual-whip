@@ -3,6 +3,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { Appearance } from './appearance';
+import { LineSplitter, encodeConfigCommand, parseOverlayLine } from './protocol';
+
+/** Delay between stopping the overlay and starting it again (lets the old process release its windows). */
+export const RESTART_DELAY_MS = 300;
+
+/** Key that must be held while flicking the mouse to crack the whip ("none" = no key needed). */
+export type GestureModifier = 'none' | 'ctrl' | 'shift' | 'alt';
 
 /** Configuration handed to the overlay (JSON in the WHIP_CONFIG environment variable). */
 export interface WhipConfig {
@@ -16,6 +23,7 @@ export interface WhipConfig {
     appearance: Appearance;
     messages: string[];
     sensitivity: number;
+    gestureModifier: GestureModifier;
     /** Maximum length of the whip, in pixels. */
     maxLength: number;
     anchorPosition: string;
@@ -33,9 +41,10 @@ export class SidecarManager {
     onCrackMessage: ((message: string) => void) | undefined;
     /** Called when the user dropped the anchor point somewhere else (fractions 0..1 of the screen). */
     onAnchorMoved: ((x: number, y: number) => void) | undefined;
-    private stdoutBuffer = '';
+    private readonly stdoutLines = new LineSplitter();
     private commandChannelReady = false;
     private visible = false;
+    private restartTimer: NodeJS.Timeout | undefined;
 
     constructor(extensionPath: string, private readonly output: vscode.OutputChannel) {
         this.overlayExe = path.join(extensionPath, 'overlay', 'bin', 'WhipOverlay.exe');
@@ -45,10 +54,17 @@ export class SidecarManager {
         return this.proc !== undefined && !this.proc.killed;
     }
 
+    /** True between the stop and the start of a restart. */
+    get restarting(): boolean {
+        return this.restartTimer !== undefined;
+    }
+
     start(config: WhipConfig): boolean {
         if (this.running) {
             return true;
         }
+        this.cancelRestart();
+        this.stdoutLines.reset();
 
         // No output.show(): the visible panel (Claude Code terminal, chat...) must never change.
         this.output.appendLine(`[overlay] starting ${this.overlayExe}`);
@@ -79,31 +95,22 @@ export class SidecarManager {
         child.stderr?.setEncoding('utf8');
         child.stdout?.on('data', (d: string) => {
             this.output.append(d);
-            this.stdoutBuffer += d;
-            const lines = this.stdoutBuffer.split(/\r?\n/);
-            this.stdoutBuffer = lines.pop() ?? '';
-            for (const line of lines) {
-                if (line === 'OVERLAY_READY') {
-                    this.commandChannelReady = true;
-                    this.setVisible(this.visible);
-                    continue;
-                }
-                const anchorPrefix = 'WHIP_ANCHOR:';
-                if (line.startsWith(anchorPrefix)) {
-                    const [x, y] = line.slice(anchorPrefix.length).split(',').map(Number);
-                    if (Number.isFinite(x) && Number.isFinite(y)) {
-                        this.onAnchorMoved?.(x, y);
-                    }
-                    continue;
-                }
-                const messagePrefix = 'WHIP_MESSAGE:';
-                if (line.startsWith(messagePrefix)) {
-                    const encoded = line.slice(messagePrefix.length);
-                    try {
-                        this.onCrackMessage?.(Buffer.from(encoded, 'base64').toString('utf8'));
-                    } catch (err) {
-                        this.output.appendLine(`[overlay] invalid message protocol: ${err instanceof Error ? err.message : String(err)}`);
-                    }
+            for (const line of this.stdoutLines.push(d)) {
+                const event = parseOverlayLine(line);
+                switch (event.type) {
+                    case 'ready':
+                        this.commandChannelReady = true;
+                        this.setVisible(this.visible);
+                        break;
+                    case 'anchor':
+                        this.onAnchorMoved?.(event.x, event.y);
+                        break;
+                    case 'message':
+                        this.onCrackMessage?.(event.text);
+                        break;
+                    case 'invalid':
+                        this.output.appendLine(`[overlay] ${event.reason}`);
+                        break;
                 }
             }
         });
@@ -133,16 +140,46 @@ export class SidecarManager {
 
     stop(): void {
         this.output.appendLine('[overlay] stop requested');
+        this.cancelRestart();
         if (this.proc && !this.proc.killed) {
             this.proc.kill();
         }
         this.proc = undefined;
     }
 
-    restart(config: WhipConfig): void {
-        if (this.running) {
-            this.stop();
-            setTimeout(() => this.start(config), 300);
+    /**
+     * Stops the overlay and starts it again. The configuration is read when the overlay starts
+     * again, not now: a burst of settings changes therefore ends with the last value, and a
+     * restart already under way is not doubled.
+     */
+    restart(getConfig: () => WhipConfig): void {
+        if (this.restarting) {
+            return;
+        }
+        if (!this.running) {
+            return;
+        }
+        this.stop();
+        this.restartTimer = setTimeout(() => {
+            this.restartTimer = undefined;
+            this.start(getConfig());
+            this.onStateChange?.(); // the exit of the old process had switched the status to "off"
+        }, RESTART_DELAY_MS);
+    }
+
+    /** Hands a new configuration to the running overlay, for the settings that need no restart. */
+    applyConfig(config: WhipConfig): boolean {
+        if (!this.commandChannelReady || !this.running || !this.proc?.stdin) {
+            return false;
+        }
+        this.proc.stdin.write(`${encodeConfigCommand(config)}\n`);
+        return true;
+    }
+
+    private cancelRestart(): void {
+        if (this.restartTimer) {
+            clearTimeout(this.restartTimer);
+            this.restartTimer = undefined;
         }
     }
 

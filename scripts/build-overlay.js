@@ -20,11 +20,36 @@ if (!csc) {
     process.exit(1);
 }
 
-const overlayDir = path.join(__dirname, '..', 'overlay');
+const { readVersion } = require('./version');
+
+const root = path.join(__dirname, '..');
+const overlayDir = path.join(root, 'overlay');
 const source = path.join(overlayDir, 'WhipOverlay.cs');
 const outDir = path.join(overlayDir, 'bin');
 const output = path.join(outDir, 'WhipOverlay.exe');
 fs.mkdirSync(outDir, { recursive: true });
+
+// File properties of the executable (Explorer > Properties > Details): an unsigned program that
+// says what it is, who wrote it and where its source is looks less suspicious to SmartScreen and
+// to antivirus heuristics, and to the person who wonders what this process is.
+const version = readVersion();
+const numeric = version.split('-')[0]; // "1.2.3-beta.1" -> "1.2.3"
+const repository = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).repository.url
+    .replace(/^git\+/, '')
+    .replace(/\.git$/, '');
+const assemblyInfo = path.join(outDir, 'AssemblyInfo.g.cs');
+fs.writeFileSync(assemblyInfo, [
+    'using System.Reflection;',
+    '[assembly: AssemblyTitle("Virtual Whip overlay")]',
+    `[assembly: AssemblyDescription("Transparent whip overlay of the Virtual Whip VS Code extension. Opens no network connection. Source: ${repository}")]`,
+    '[assembly: AssemblyProduct("Virtual Whip")]',
+    '[assembly: AssemblyCompany("Toff1989")]',
+    '[assembly: AssemblyCopyright("Copyright (c) 2026 Toff1989. MIT License.")]',
+    `[assembly: AssemblyVersion("${numeric}.0")]`,
+    `[assembly: AssemblyFileVersion("${numeric}.0")]`,
+    `[assembly: AssemblyInformationalVersion("${version}")]`,
+    ''
+].join('\r\n'));
 
 const args = [
     '/nologo',
@@ -37,7 +62,8 @@ const args = [
     '/reference:System.Drawing.dll',
     '/reference:System.Windows.Forms.dll',
     '/reference:System.Web.Extensions.dll',
-    source
+    source,
+    assemblyInfo
 ];
 
 const result = cp.spawnSync(csc, args, { stdio: 'inherit' });

@@ -21,7 +21,9 @@ Chat, and sends it a message telling it to hurry up. Without ever changing the f
   attached to an anchor point and following your cursor, within a **maximum length**.
 - **Draggable anchor point**: hold the left button on the circle, move, release. The position is
   remembered.
-- **Crack on gesture**: a fast enough flick of the wrist triggers the sound and the flash.
+- **Crack on gesture**: a fast enough flick of the wrist triggers the sound and the flash. A flick
+  made with a mouse button held (selecting text, dragging a window) never counts, and you can ask
+  for a key to be held too (`virtualWhip.gestureModifier`) if it cracks by accident.
 - **Direct delivery to the AI, without touching the focus**:
   - **Claude Code terminal**: `Escape` interrupts the ongoing turn, then the message is sent;
   - **Copilot chat**: "stop and send", without stealing the focus or overwriting your draft.
@@ -48,6 +50,18 @@ VS Code, VS Code Insiders and/or VSCodium, then cleans up after itself.
 
 **Other ways**: download the `.vsix` from the Releases, then *Extensions → … → Install from
 VSIX…*, or build from source (see [Development](#development)).
+
+**Checking a download.** The overlay is a native executable that is not code-signed, so Windows
+SmartScreen or an antivirus may question it. Each release therefore comes with `SHA256SUMS.txt`
+and a build attestation produced by the GitHub Actions run that built it. To check a file:
+
+```powershell
+(Get-FileHash .\install-virtual-whip.bat -Algorithm SHA256).Hash   # compare with SHA256SUMS.txt
+gh attestation verify .\install-virtual-whip.bat --repo Toff1989/virtual-whip
+```
+
+The executable's file properties (*Properties → Details*) name the product, its version, the
+license and the address of the source code.
 
 ## Quick start
 
@@ -93,6 +107,7 @@ touched follow the style. *Virtual Whip: Reset Appearance* clears everything.
 | `virtualWhip.autoStart` | `false` | shows the whip when VS Code starts |
 | `virtualWhip.showOnlyWhenFocused` | `true` | hides the whip when VS Code does not have the focus |
 | `virtualWhip.sensitivity` | `3.5` | minimum speed of the gesture (px/ms); higher = less sensitive |
+| `virtualWhip.gestureModifier` | `none` | `ctrl` / `shift` / `alt`: a key to hold while flicking, to avoid accidental cracks |
 | `virtualWhip.cooldownMs` | `650` | minimum delay between two cracks |
 | `virtualWhip.maxLength` | `450` | maximum length of the whip (px) |
 | `virtualWhip.anchorPosition` | `bottom-right` | starting corner of the anchor point |
@@ -101,11 +116,12 @@ touched follow the style. *Virtual Whip: Reset Appearance* clears everything.
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `virtualWhip.messages` | 6 messages | texts sent at random *(user settings only)* |
+| `virtualWhip.messages` | 6 messages | texts sent at random *(user settings only)*; left alone, the built-in messages follow the display language of VS Code |
 | `virtualWhip.target` | `auto` | `auto`, `claude` or `copilot` *(user settings only)* |
 | `virtualWhip.interruptBeforeSend` | `true` | interrupts the ongoing work before sending |
 | `virtualWhip.interruptDelayMs` | `200` | delay between the interruption and the message (terminal) |
 | `virtualWhip.reasoningEffort` | `unchanged` | `low` / `medium` / `high`: sends `/effort` to Claude Code |
+| `virtualWhip.preserveTerminalDraft` | `false` | *experimental*: sets aside what you were typing in Claude Code's prompt while the message goes through *(user settings only)* |
 
 **Whip appearance**
 
@@ -146,6 +162,12 @@ touched follow the style. *Virtual Whip: Reset Appearance* clears everything.
 | `Virtual Whip: Choose a Style` | picks a built-in style |
 | `Virtual Whip: Reset Appearance` | restores the default style and colors |
 | `Virtual Whip: Reset Anchor Point Position` | puts the anchor point back in its corner |
+| `Virtual Whip: Use This Terminal for Claude Code` | marks (or unmarks) the active terminal as a Claude Code terminal, for shells where it cannot be detected |
+| `Virtual Whip: Diagnose Message Delivery` | writes to the *Virtual Whip* output what the extension sees: terminals, Copilot command, where a crack would go |
+
+Changing an appearance setting, the sensitivity, the messages or the gesture key applies to the
+whip on screen at once. Changing the rope length, the corner or the sound restarts it (a fraction
+of a second).
 
 ## Where the message goes
 
@@ -158,8 +180,19 @@ touched follow the style. *Virtual Whip: Reset Appearance* clears everything.
 - **Claude Code terminal**: detected when a `claude` command is started in it (or when the
   terminal name contains "claude"). The message is typed with `sendText`, without
   `terminal.show`, so the focus and the visible panel are left alone.
-- **Copilot chat**: internal command `workbench.action.chat.submit` with `preserveFocus` and
-  `preserveInput`; the chat must have been clicked at least once in the window.
+  - Detection relies on the **shell integration** of VS Code (PowerShell, bash, zsh, fish), which
+    `cmd.exe` and some terminals do not have. There, run **Virtual Whip: Use This Terminal for
+    Claude Code** once: the terminal is then a target for as long as it lives. If a crack goes to
+    Copilot while you use Claude Code in such a terminal, the extension says so once.
+  - What you were typing in Claude Code's prompt would be glued to the message.
+    `virtualWhip.preserveTerminalDraft` (experimental, off by default) avoids that: it types
+    Claude Code's own line-editing shortcuts to put the line aside (`Ctrl+E`, a marker, `Ctrl+U`),
+    sends the message, then pastes the line back (`Ctrl+Y`) and removes the marker. Only the last
+    line of a draft spanning several lines is preserved.
+- **Copilot chat**: internal command `workbench.action.chat.submit` with `preserveInput` (and
+  `preserveFocus`); the chat must have been clicked at least once in the window. It is not a
+  public API, so a later VS Code may change it: the option names were checked against VS Code
+  1.138 and, if the command fails, the extension shows the error instead of staying silent.
 - **Interruption** (`virtualWhip.interruptBeforeSend`): without it, the message would be queued
   until the end of the model's turn. Terminal: `Escape` before the message (never two `Escape` less
   than 1.5 s apart, which would trigger "rewind"). Copilot: "stop and send".
@@ -169,14 +202,20 @@ touched follow the style. *Virtual Whip: Reset Appearance* clears everything.
 ## Known limitations
 
 - **Windows only** (native transparent window, sound through the Windows multimedia API).
-- The **Claude Code extension's chat** is not supported (its API can only prefill the input, not
-  send). Enable its `claudeCode.useTerminal` setting: it then goes through a terminal, which the
-  whip handles.
+- The **Claude Code extension's chat panel** is not supported (its API can only prefill the input,
+  not send). Enable its `claudeCode.useTerminal` setting: it then goes through a terminal, which
+  the whip handles. The extension detects the panel case and tells you.
 - The reasoning level does not apply to the Copilot chat (no public API).
+- Copilot delivery uses an internal VS Code command (see above), and could not be tested here
+  against an installed Copilot: the command's presence and signature were checked in VS Code 1.138.
+- `preserveTerminalDraft` is experimental: only the sequence of keys it types was tested (against a
+  simulated terminal). It has not been tried on a real Claude Code prompt, and relies on the
+  editing shortcuts documented for Claude Code (`Ctrl+E`, `Ctrl+U`, `Ctrl+Y`).
 - Clicking the anchor point depends on Windows: if the drag does not start, a safety net detects
   the press on the circle, but the click may then also reach the window underneath.
-- The extension is not published on the Marketplace (publisher `local`): install it from the
-  Releases.
+- The extension is not published on the Marketplace (publisher `local`), and the overlay is not
+  code-signed (that needs a paid certificate): install it from the Releases, and see
+  [Checking a download](#installation).
 
 ## Troubleshooting
 
@@ -184,8 +223,9 @@ touched follow the style. *Virtual Whip: Reset Appearance* clears everything.
 |---|---|
 | Nothing is displayed | the VS Code window must have the focus (or disable `virtualWhip.showOnlyWhenFocused`); check *View → Output → Virtual Whip* |
 | "overlay is not compiled" | run `npm run compile` (installation from source) |
-| The whip cracks too easily | raise `virtualWhip.sensitivity` (try 6 to 8 on a large screen) |
-| The message does not go through | check `virtualWhip.target`; for Copilot, click once in the chat input |
+| The whip cracks too easily | raise `virtualWhip.sensitivity` (try 6 to 8 on a large screen), or require a key with `virtualWhip.gestureModifier` |
+| The message does not go through | run **Virtual Whip: Diagnose Message Delivery** and read the report in *Output → Virtual Whip*; check `virtualWhip.target`; for Copilot, click once in the chat input |
+| The message goes to Copilot, not to Claude Code | the terminal has no shell integration (`cmd.exe`): run **Virtual Whip: Use This Terminal for Claude Code** in it |
 | No sound | `virtualWhip.sound.volume` above 0; an `.mp3` must be playable by Windows |
 
 ## Building from source
@@ -196,7 +236,8 @@ already part of Windows.
 ```bash
 npm ci                 # dependencies
 npm run compile        # extension (TypeScript) + native overlay (C#)
-npm test               # tests (appearance, settings, localization, extension)
+npm test               # tests (appearance, settings, localization, extension, message
+                       # delivery, overlay protocol and process, checksums)
 ```
 
 Then press **F5** in VS Code to launch an "Extension Development Host" window with the extension.
@@ -205,8 +246,8 @@ Then press **F5** in VS Code to launch an "Extension Development Host" window wi
 |---|---|
 | `npm run compile` | builds everything (also copies `VERSION.txt` into `package.json`) |
 | `npm run watch` | rebuilds the TypeScript continuously |
-| `npm test` | unit tests (`node --test`) |
-| `npm run package` | builds, produces the `.vsix` and the `install-virtual-whip.bat` installer |
+| `npm test` | tests (`node --test`); the ones on the real overlay only run on Windows, once it is built |
+| `npm run package` | builds, produces the `.vsix`, the `install-virtual-whip.bat` installer and `SHA256SUMS.txt` |
 | `node scripts/make-gallery.js` | regenerates `docs/presets/*.png` and `assets/icon.png` |
 | `node scripts/make-default-sound.js` | regenerates the built-in sound `assets/crack.wav` |
 
@@ -223,9 +264,12 @@ or if French text appears in a file that must be English.
   `scripts/installer-template.bat` instead.
 - The overlay is built by the system's `csc.exe`, so **C# 5 only** (no string interpolation, no `?.`).
 - The focus must never change when a message is sent: no `terminal.show()`, no
-  `workbench.action.chat.open`, no `output.show()`.
-- `virtualWhip.messages`, `target` and `reasoningEffort` keep the `application` scope (see
-  [SECURITY.md](SECURITY.md)).
+  `workbench.action.chat.open`, no `output.show()` (the log only comes forward when the user
+  clicks "Show Log" after *Diagnose Message Delivery*).
+- `virtualWhip.messages`, `target`, `reasoningEffort` and `preserveTerminalDraft` keep the
+  `application` scope (see [SECURITY.md](SECURITY.md)).
+- Every setting declared in `package.json` must be listed in `src/settings.ts` as applied live, as
+  needing a restart, or as read by the extension only: `npm test` fails otherwise.
 
 ```
 virtual-whip/
@@ -233,8 +277,10 @@ virtual-whip/
     extension.ts        activation, status bar, commands
     settings.ts         reads the settings, detects what the user changed
     appearance.ts       built-in styles and style + settings resolution (tested)
+    messages.ts         built-in messages (translated at runtime)
     messageRouter.ts    message delivery: Claude Code terminal / Copilot chat
-    sidecarManager.ts   starts the overlay and talks to it
+    protocol.ts         lines exchanged with the overlay (pure functions, tested)
+    sidecarManager.ts   starts, restarts and talks to the overlay
   overlay/WhipOverlay.cs    native overlay: transparent windows, physics, gesture, sound
   scripts/              overlay build, version, installer, images, sound
   test/                 unit tests
@@ -245,11 +291,14 @@ virtual-whip/
 
 The `WhipOverlay.exe --snapshot output.png` mode draws a scene into a PNG without opening any
 window: it produces the previews and lets you check a style without showing anything on screen.
+`WhipOverlay.exe --selftest` runs the overlay's built-in checks (gesture detection, colors, live
+configuration) and exits with a non-zero code if one fails; `npm test` runs it.
 
 ### Extension ↔ overlay protocol
 
 - Configuration: `WHIP_CONFIG` environment variable (JSON).
-- stdin, one command per line: `SHOW`, `HIDE`, `CRACK`, `STATUS`, `QUIT`.
+- stdin, one command per line: `SHOW`, `HIDE`, `CRACK`, `STATUS`, `QUIT`, and
+  `CONFIG:<base64 of the UTF-8 JSON>` which applies the settings that need no restart.
 - stdout: `OVERLAY_READY`, `WHIP_MESSAGE:<base64 utf-8>` on every crack,
   `WHIP_ANCHOR:<x>,<y>` when the anchor is moved (fractions 0..1 of the screen), and
   `[overlay] ...` log lines.

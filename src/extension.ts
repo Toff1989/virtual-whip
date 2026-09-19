@@ -1,16 +1,15 @@
 import * as vscode from 'vscode';
 import { DEFAULT_PRESET, PRESETS, PRESET_NAMES, PresetName } from './appearance';
 import { MessageRouter } from './messageRouter';
-import { SECTION, readSendOptions, readWhipConfig, resetAppearanceSettings, showOnlyWhenFocused } from './settings';
+import {
+    ConfigChange, SECTION, classifyConfigChange, readSendOptions, readWhipConfig, resetAppearanceSettings, showOnlyWhenFocused
+} from './settings';
 import { SidecarManager } from './sidecarManager';
 
 const ANCHOR_STATE_KEY = 'virtualWhip.anchorCustom';
 
-/** Settings that require restarting the overlay (the others are read again on every crack). */
-const OVERLAY_SETTINGS = [
-    'audioFilePath', 'sound', 'cooldownMs', 'sensitivity', 'maxLength', 'anchorPosition',
-    'messages', 'appearance', 'whip', 'anchor', 'effect'
-];
+/** Settings changes that follow each other closer than this are handled as one. */
+export const CONFIG_DEBOUNCE_MS = 250;
 
 let sidecar: SidecarManager;
 let router: MessageRouter;
@@ -53,18 +52,45 @@ export function activate(context: vscode.ExtensionContext): void {
     updateStatusBar();
     statusBarItem.show();
 
-    const restartOverlay = (): void => {
-        if (sidecar.running) {
-            sidecar.restart(currentConfig());
-            setTimeout(syncOverlayVisibility, 350);
+    // Settings changes are gathered, then applied once, with the values they have at that moment
+    // (resetting the appearance changes about twenty settings, one after the other).
+    let pendingChange: ConfigChange = 'none';
+    let changeTimer: NodeJS.Timeout | undefined;
+    const applyPendingChange = (): void => {
+        changeTimer = undefined;
+        const change = pendingChange;
+        pendingChange = 'none';
+        if (change === 'restart') {
+            sidecar.restart(currentConfig);
+        } else if (change === 'live' && !sidecar.applyConfig(currentConfig())) {
+            // Not ready to receive it (starting up, or not running): a running overlay picks the
+            // new values up at its next start.
+            sidecar.restart(currentConfig);
         }
+    };
+    const scheduleChange = (change: ConfigChange): void => {
+        if (change === 'none') {
+            return;
+        }
+        pendingChange = pendingChange === 'restart' || change === 'restart' ? 'restart' : 'live';
+        if (changeTimer) {
+            clearTimeout(changeTimer);
+        }
+        changeTimer = setTimeout(applyPendingChange, CONFIG_DEBOUNCE_MS);
     };
 
     context.subscriptions.push(
         statusBarItem,
         output,
         router,
-        { dispose: () => sidecar.stop() },
+        {
+            dispose: () => {
+                if (changeTimer) {
+                    clearTimeout(changeTimer);
+                }
+                sidecar.stop();
+            }
+        },
         vscode.commands.registerCommand('virtualWhip.toggleOverlay', () => {
             if (sidecar.running) {
                 sidecar.stop();
@@ -82,8 +108,35 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
         vscode.commands.registerCommand('virtualWhip.resetAnchor', async () => {
             await context.globalState.update(ANCHOR_STATE_KEY, undefined);
-            restartOverlay();
+            scheduleChange('restart');
             vscode.window.showInformationMessage(vscode.l10n.t('Virtual Whip: the anchor point is back to its default position.'));
+        }),
+        vscode.commands.registerCommand('virtualWhip.markClaudeTerminal', () => {
+            const terminal = vscode.window.activeTerminal;
+            if (!terminal) {
+                vscode.window.showInformationMessage(vscode.l10n.t('Virtual Whip: there is no active terminal.'));
+                return;
+            }
+            vscode.window.showInformationMessage(
+                router.toggleMarkedTerminal(terminal)
+                    ? vscode.l10n.t('Virtual Whip: this terminal is now treated as a Claude Code terminal.')
+                    : vscode.l10n.t('Virtual Whip: this terminal is no longer marked as a Claude Code terminal.')
+            );
+        }),
+        vscode.commands.registerCommand('virtualWhip.diagnose', async () => {
+            const report = await router.diagnose(readSendOptions().target);
+            const overlay = sidecar.running ? 'running' : 'stopped';
+            const version = String(context.extension?.packageJSON?.version ?? 'unknown');
+            output.appendLine(['[diagnose] Virtual Whip ' + version, `Overlay: ${overlay}`, ...report].join('\n[diagnose] '));
+            // The log is only brought forward when the user asks for it: nothing else may change what is on screen.
+            const showLog = vscode.l10n.t('Show Log');
+            const answer = await vscode.window.showInformationMessage(
+                vscode.l10n.t('Virtual Whip: the diagnostics were written to the "Virtual Whip" output.'),
+                showLog
+            );
+            if (answer === showLog) {
+                output.show(true);
+            }
         }),
         vscode.commands.registerCommand('virtualWhip.choosePreset', async () => {
             const cfg = vscode.workspace.getConfiguration(SECTION);
@@ -119,13 +172,15 @@ export function activate(context: vscode.ExtensionContext): void {
             if (!e.affectsConfiguration(SECTION)) {
                 return;
             }
+            const affects = (key: string) => e.affectsConfiguration(`${SECTION}.${key}`);
             // Choosing a corner in the settings replaces the position dragged with the mouse.
-            if (e.affectsConfiguration(`${SECTION}.anchorPosition`)) {
+            if (affects('anchorPosition')) {
                 await context.globalState.update(ANCHOR_STATE_KEY, undefined);
             }
-            if (OVERLAY_SETTINGS.some((key) => e.affectsConfiguration(`${SECTION}.${key}`))) {
-                restartOverlay();
-            } else if (e.affectsConfiguration(`${SECTION}.showOnlyWhenFocused`)) {
+            const change = classifyConfigChange(affects);
+            if (change !== 'none') {
+                scheduleChange(change);
+            } else if (affects('showOnlyWhenFocused')) {
                 syncOverlayVisibility();
             }
         }),
