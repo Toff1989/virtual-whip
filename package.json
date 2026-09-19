@@ -1,0 +1,410 @@
+{
+  "name": "virtual-whip",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.1.0",
+  "publisher": "local",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Toff1989/virtual-whip.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Toff1989/virtual-whip/issues"
+  },
+  "homepage": "https://github.com/Toff1989/virtual-whip#readme",
+  "keywords": [
+    "claude",
+    "claude code",
+    "copilot",
+    "ai",
+    "chat",
+    "fun",
+    "whip",
+    "overlay"
+  ],
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#1E1E1E",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "main": "./out/extension.js",
+  "l10n": "./l10n",
+  "contributes": {
+    "commands": [
+      {
+        "command": "virtualWhip.toggleOverlay",
+        "title": "%command.toggleOverlay.title%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "virtualWhip.crackNow",
+        "title": "%command.crackNow.title%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "virtualWhip.choosePreset",
+        "title": "%command.choosePreset.title%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "virtualWhip.resetAppearance",
+        "title": "%command.resetAppearance.title%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "virtualWhip.resetAnchor",
+        "title": "%command.resetAnchor.title%",
+        "category": "%command.category%"
+      }
+    ],
+    "configuration": [
+      {
+        "title": "%section.general%",
+        "order": 1,
+        "properties": {
+          "virtualWhip.autoStart": {
+            "type": "boolean",
+            "default": false,
+            "order": 1,
+            "description": "%virtualWhip.autoStart.description%"
+          },
+          "virtualWhip.showOnlyWhenFocused": {
+            "type": "boolean",
+            "default": true,
+            "order": 2,
+            "description": "%virtualWhip.showOnlyWhenFocused.description%"
+          },
+          "virtualWhip.sensitivity": {
+            "type": "number",
+            "default": 3.5,
+            "minimum": 0,
+            "order": 3,
+            "description": "%virtualWhip.sensitivity.description%"
+          },
+          "virtualWhip.cooldownMs": {
+            "type": "number",
+            "default": 650,
+            "minimum": 100,
+            "maximum": 5000,
+            "order": 4,
+            "description": "%virtualWhip.cooldownMs.description%"
+          },
+          "virtualWhip.maxLength": {
+            "type": "number",
+            "default": 450,
+            "minimum": 120,
+            "maximum": 3000,
+            "order": 5,
+            "description": "%virtualWhip.maxLength.description%"
+          },
+          "virtualWhip.anchorPosition": {
+            "type": "string",
+            "enum": [
+              "bottom-right",
+              "bottom-left",
+              "top-right",
+              "top-left"
+            ],
+            "enumDescriptions": [
+              "%virtualWhip.anchorPosition.bottom-right%",
+              "%virtualWhip.anchorPosition.bottom-left%",
+              "%virtualWhip.anchorPosition.top-right%",
+              "%virtualWhip.anchorPosition.top-left%"
+            ],
+            "default": "bottom-right",
+            "order": 6,
+            "description": "%virtualWhip.anchorPosition.description%"
+          }
+        }
+      },
+      {
+        "title": "%section.messages%",
+        "order": 2,
+        "properties": {
+          "virtualWhip.messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "Come on, faster!",
+              "Speed up, but stay precise.",
+              "Hurry up (without rushing)!",
+              "Go faster, but keep the quality.",
+              "Faster than that!",
+              "We don't have all day, speed up."
+            ],
+            "scope": "application",
+            "order": 1,
+            "markdownDescription": "%virtualWhip.messages.description%"
+          },
+          "virtualWhip.target": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "claude",
+              "copilot"
+            ],
+            "enumDescriptions": [
+              "%virtualWhip.target.auto%",
+              "%virtualWhip.target.claude%",
+              "%virtualWhip.target.copilot%"
+            ],
+            "default": "auto",
+            "scope": "application",
+            "order": 2,
+            "description": "%virtualWhip.target.description%"
+          },
+          "virtualWhip.interruptBeforeSend": {
+            "type": "boolean",
+            "default": true,
+            "order": 3,
+            "description": "%virtualWhip.interruptBeforeSend.description%"
+          },
+          "virtualWhip.interruptDelayMs": {
+            "type": "number",
+            "default": 200,
+            "minimum": 0,
+            "maximum": 2000,
+            "order": 4,
+            "description": "%virtualWhip.interruptDelayMs.description%"
+          },
+          "virtualWhip.reasoningEffort": {
+            "type": "string",
+            "enum": [
+              "unchanged",
+              "low",
+              "medium",
+              "high"
+            ],
+            "enumDescriptions": [
+              "%virtualWhip.reasoningEffort.unchanged%",
+              "%virtualWhip.reasoningEffort.low%",
+              "%virtualWhip.reasoningEffort.medium%",
+              "%virtualWhip.reasoningEffort.high%"
+            ],
+            "default": "unchanged",
+            "scope": "application",
+            "order": 5,
+            "markdownDescription": "%virtualWhip.reasoningEffort.description%"
+          }
+        }
+      },
+      {
+        "title": "%section.appearance%",
+        "order": 3,
+        "properties": {
+          "virtualWhip.appearance.preset": {
+            "type": "string",
+            "enum": [
+              "leather",
+              "neon",
+              "fire",
+              "ice",
+              "gold",
+              "shadow"
+            ],
+            "enumDescriptions": [
+              "%virtualWhip.appearance.preset.leather%",
+              "%virtualWhip.appearance.preset.neon%",
+              "%virtualWhip.appearance.preset.fire%",
+              "%virtualWhip.appearance.preset.ice%",
+              "%virtualWhip.appearance.preset.gold%",
+              "%virtualWhip.appearance.preset.shadow%"
+            ],
+            "default": "leather",
+            "order": 1,
+            "markdownDescription": "%virtualWhip.appearance.preset.description%"
+          },
+          "virtualWhip.whip.colorBase": {
+            "type": "string",
+            "default": "#785032",
+            "format": "color-hex",
+            "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+            "patternErrorMessage": "%patternErrorMessage.color%",
+            "order": 2,
+            "description": "%virtualWhip.whip.colorBase.description%"
+          },
+          "virtualWhip.whip.colorTip": {
+            "type": "string",
+            "default": "#D2A064",
+            "format": "color-hex",
+            "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+            "patternErrorMessage": "%patternErrorMessage.color%",
+            "order": 3,
+            "description": "%virtualWhip.whip.colorTip.description%"
+          },
+          "virtualWhip.whip.opacity": {
+            "type": "number",
+            "default": 0.9,
+            "minimum": 0.1,
+            "maximum": 1,
+            "order": 4,
+            "description": "%virtualWhip.whip.opacity.description%"
+          },
+          "virtualWhip.whip.thickness": {
+            "type": "number",
+            "default": 7,
+            "minimum": 1,
+            "maximum": 30,
+            "order": 5,
+            "description": "%virtualWhip.whip.thickness.description%"
+          },
+          "virtualWhip.whip.tipThickness": {
+            "type": "number",
+            "default": 2,
+            "minimum": 1,
+            "maximum": 20,
+            "order": 6,
+            "description": "%virtualWhip.whip.tipThickness.description%"
+          },
+          "virtualWhip.whip.glow": {
+            "type": "number",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "order": 7,
+            "description": "%virtualWhip.whip.glow.description%"
+          },
+          "virtualWhip.whip.gravity": {
+            "type": "number",
+            "default": 0.35,
+            "minimum": 0,
+            "maximum": 1.5,
+            "order": 8,
+            "description": "%virtualWhip.whip.gravity.description%"
+          },
+          "virtualWhip.whip.damping": {
+            "type": "number",
+            "default": 0.985,
+            "minimum": 0.9,
+            "maximum": 0.999,
+            "order": 9,
+            "description": "%virtualWhip.whip.damping.description%"
+          }
+        }
+      },
+      {
+        "title": "%section.anchorEffect%",
+        "order": 4,
+        "properties": {
+          "virtualWhip.anchor.color": {
+            "type": "string",
+            "default": "#3C2D1E",
+            "format": "color-hex",
+            "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+            "patternErrorMessage": "%patternErrorMessage.color%",
+            "order": 1,
+            "description": "%virtualWhip.anchor.color.description%"
+          },
+          "virtualWhip.anchor.size": {
+            "type": "number",
+            "default": 9,
+            "minimum": 4,
+            "maximum": 20,
+            "order": 2,
+            "description": "%virtualWhip.anchor.size.description%"
+          },
+          "virtualWhip.effect.enabled": {
+            "type": "boolean",
+            "default": true,
+            "order": 3,
+            "description": "%virtualWhip.effect.enabled.description%"
+          },
+          "virtualWhip.effect.color": {
+            "type": "string",
+            "default": "#FFE6B4",
+            "format": "color-hex",
+            "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+            "patternErrorMessage": "%patternErrorMessage.color%",
+            "order": 4,
+            "description": "%virtualWhip.effect.color.description%"
+          },
+          "virtualWhip.effect.size": {
+            "type": "number",
+            "default": 1,
+            "minimum": 0.3,
+            "maximum": 3,
+            "order": 5,
+            "description": "%virtualWhip.effect.size.description%"
+          },
+          "virtualWhip.effect.durationMs": {
+            "type": "number",
+            "default": 380,
+            "minimum": 100,
+            "maximum": 2000,
+            "order": 6,
+            "description": "%virtualWhip.effect.durationMs.description%"
+          },
+          "virtualWhip.effect.rays": {
+            "type": "integer",
+            "default": 8,
+            "minimum": 0,
+            "maximum": 24,
+            "order": 7,
+            "description": "%virtualWhip.effect.rays.description%"
+          }
+        }
+      },
+      {
+        "title": "%section.sound%",
+        "order": 5,
+        "properties": {
+          "virtualWhip.audioFilePath": {
+            "type": "string",
+            "default": "",
+            "order": 1,
+            "markdownDescription": "%virtualWhip.audioFilePath.description%"
+          },
+          "virtualWhip.sound.volume": {
+            "type": "number",
+            "default": 100,
+            "minimum": 0,
+            "maximum": 100,
+            "order": 2,
+            "description": "%virtualWhip.sound.volume.description%"
+          }
+        }
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "virtualWhip.toggleOverlay",
+        "key": "ctrl+alt+f"
+      }
+    ]
+  },
+  "scripts": {
+    "sync-version": "node scripts/sync-version.js",
+    "precompile": "npm run sync-version",
+    "compile": "npm run compile:ts && npm run compile:overlay",
+    "compile:ts": "tsc -p .",
+    "compile:overlay": "node scripts/build-overlay.js",
+    "watch": "tsc -p . -w",
+    "test": "npm run compile:ts && node --test test/appearance.test.js test/settings.test.js test/localization.test.js test/extension.test.js",
+    "package": "npm run compile && npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository --skip-license && npm run installer",
+    "installer": "node scripts/make-installer.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.93.0",
+    "typescript": "^5.4.0"
+  }
+}

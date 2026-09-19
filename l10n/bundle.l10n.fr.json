@@ -1,0 +1,31 @@
+{
+  "$(flame) Whip on": "$(flame) Fouet actif",
+  "The whip is shown. Click to hide it.": "Le fouet est affiché. Clique pour le masquer.",
+  "$(circle-slash) Whip off": "$(circle-slash) Fouet inactif",
+  "Click to show the virtual whip.": "Clique pour afficher le fouet virtuel.",
+  "Virtual Whip: show the whip first (command \"Virtual Whip: Toggle Whip\").": "Virtual Whip : affiche d'abord le fouet (commande « Virtual Whip: Afficher/Masquer le fouet »).",
+  "Virtual Whip: the anchor point is back to its default position.": "Virtual Whip : le point d'ancrage est revenu à sa position par défaut.",
+  "Virtual Whip: choose a style": "Virtual Whip : choisir un style",
+  "Appearance settings you changed still take precedence.": "Les réglages d'apparence que tu as modifiés restent prioritaires.",
+  "(current)": "(actuel)",
+  "Reset the style and all appearance settings of the whip to their defaults?": "Remettre le style et tous les réglages d'apparence du fouet à leur valeur par défaut ?",
+  "Reset": "Réinitialiser",
+
+  "Leather": "Cuir",
+  "Brown leather whip, understated (default).": "Fouet de cuir brun, sobre (défaut).",
+  "Neon": "Néon",
+  "Cyan to magenta stroke with a bright glow.": "Trait cyan vers magenta avec halo lumineux.",
+  "Fire": "Feu",
+  "Dark red to yellow, warm glow.": "Rouge sombre vers jaune, halo chaud.",
+  "Ice": "Glace",
+  "Glacier blue to white, cold glow.": "Bleu glacier vers blanc, halo froid.",
+  "Gold": "Or",
+  "Burnished gold to pale yellow, soft glow.": "Or bruni vers jaune pâle, léger halo.",
+  "Shadow": "Ombre",
+  "Discreet slate gray, no glow.": "Gris ardoise discret, sans halo.",
+
+  "Virtual Whip: no Claude Code terminal found. Start `claude` in a VS Code terminal.": "Virtual Whip : aucun terminal Claude Code trouvé. Lance `claude` dans un terminal VS Code.",
+  "Virtual Whip: the overlay only works on Windows.": "Virtual Whip : l'overlay ne fonctionne que sous Windows.",
+  "Virtual Whip: the overlay is not compiled. Run \"npm run compile\" in the project folder.": "Virtual Whip : overlay non compilé. Lance « npm run compile » dans le dossier du projet.",
+  "Virtual Whip: unable to start the overlay ({0})": "Virtual Whip : impossible de démarrer l'overlay ({0})"
+}

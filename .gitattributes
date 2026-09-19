@@ -1,0 +1,13 @@
+# Line-ending normalization: LF in the repository, except for Windows scripts.
+* text=auto
+
+# cmd.exe mishandles labels and goto in a .bat with bare LF endings: always CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files (never converted, no text diff)
+*.png binary
+*.wav binary
+*.exe binary
+*.vsix binary
