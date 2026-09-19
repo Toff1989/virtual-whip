@@ -403,8 +403,8 @@
     "installer": "node scripts/make-installer.js"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
+    "@types/node": "^26.6.1",
     "@types/vscode": "^1.93.0",
-    "typescript": "^5.4.0"
+    "typescript": "^7.0.2"
   }
 }
