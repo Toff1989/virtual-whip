@@ -14,5 +14,4 @@ node_modules/**
 out/**/*.map
 *.vsix
 VERSION.txt
-CONTRIBUTING.md
 SECURITY.md

@@ -2,9 +2,9 @@
 
 ## Reporting a vulnerability
 
-Please do **not** open a public issue for a security vulnerability. Use GitHub's private
-reporting: the **Security → Report a vulnerability** tab of the repository. Describe the problem,
-how to reproduce it and its impact; you will get an answer as soon as possible.
+This project does not accept external contributions, but security reports are welcome. Use
+GitHub's private reporting: the **Security → Report a vulnerability** tab of the repository.
+Describe the problem, how to reproduce it and its impact.
 
 ## What the extension does (and does not do)
 

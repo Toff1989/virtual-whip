@@ -188,7 +188,7 @@ touched follow the style. *Virtual Whip: Reset Appearance* clears everything.
 | The message does not go through | check `virtualWhip.target`; for Copilot, click once in the chat input |
 | No sound | `virtualWhip.sound.volume` above 0; an `.mp3` must be playable by Windows |
 
-## Development
+## Building from source
 
 Requirements: Windows, Node.js 20+, VS Code. The C# compiler (`csc.exe`, .NET Framework 4) is
 already part of Windows.
@@ -213,8 +213,19 @@ Then press **F5** in VS Code to launch an "Extension Development Host" window wi
 **Version number**: it is only written in [`VERSION.txt`](VERSION.txt). `npm run compile` copies
 it into `package.json` and `package-lock.json` (required by `vsce`).
 
-**Languages**: English is the source language; French is provided through `package.nls.fr.json`
-and `l10n/bundle.l10n.fr.json`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+**Languages**: English is the source language; French is a translation provided through
+`package.nls.fr.json` and `l10n/bundle.l10n.fr.json`. `npm test` fails if a translation is missing
+or if French text appears in a file that must be English.
+
+**Repository rules**
+
+- `.bat` files: ASCII only and CRLF line endings. `install-virtual-whip.bat` is generated: edit
+  `scripts/installer-template.bat` instead.
+- The overlay is built by the system's `csc.exe`, so **C# 5 only** (no string interpolation, no `?.`).
+- The focus must never change when a message is sent: no `terminal.show()`, no
+  `workbench.action.chat.open`, no `output.show()`.
+- `virtualWhip.messages`, `target` and `reasoningEffort` keep the `application` scope (see
+  [SECURITY.md](SECURITY.md)).
 
 ```
 virtual-whip/
@@ -244,8 +255,14 @@ window: it produces the previews and lets you check a style without showing anyt
   `[overlay] ...` log lines.
 - If stdin closes (VS Code exits), the overlay stops by itself.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute, [CHANGELOG.md](CHANGELOG.md) for the
-history and [SECURITY.md](SECURITY.md) to report a vulnerability.
+See [CHANGELOG.md](CHANGELOG.md) for the history and [SECURITY.md](SECURITY.md) to report a
+vulnerability.
+
+## Project status
+
+Virtual Whip is a personal project, shared as is. **It does not accept external contributions**:
+pull requests, issues and discussions are turned off. You are welcome to use it and, under the
+terms of the MIT license, to fork it and adapt it for yourself.
 
 ## License
 

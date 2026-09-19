@@ -193,7 +193,7 @@ touchés suivent le style. *Virtual Whip: Réinitialiser l'apparence* remet tout
 | Le message ne part pas | vérifie `virtualWhip.target` ; pour Copilot, clique une fois dans le champ du chat |
 | Pas de son | `virtualWhip.sound.volume` > 0 ; un `.mp3` doit être lisible par Windows |
 
-## Développement
+## Compiler depuis les sources
 
 Prérequis : Windows, Node.js 20+, VS Code. Le compilateur C# (`csc.exe`, .NET Framework 4) est
 déjà présent dans Windows.
@@ -218,11 +218,17 @@ Puis **F5** dans VS Code lance une fenêtre « Extension Development Host » ave
 **Numéro de version** : il n'est écrit que dans [`VERSION.txt`](VERSION.txt). `npm run compile`
 le recopie dans `package.json` et `package-lock.json` (exigés par `vsce`).
 
-**Langues** : l'anglais est la langue source ; le français est fourni par `package.nls.fr.json`
-et `l10n/bundle.l10n.fr.json`. Voir [CONTRIBUTING.md](CONTRIBUTING.md) (en anglais).
+**Langues** : l'anglais est la langue source ; le français est une traduction fournie par
+`package.nls.fr.json` et `l10n/bundle.l10n.fr.json`. `npm test` échoue si une traduction manque
+ou si du français apparaît dans un fichier qui doit être en anglais.
 
-Le code, les commentaires et les autres documents (`CONTRIBUTING`, `CHANGELOG`, `SECURITY`) sont
-en anglais.
+Le code, les commentaires et les autres documents (`CHANGELOG`, `SECURITY`) sont en anglais.
+
+## État du projet
+
+Virtual Whip est un projet personnel, partagé tel quel. **Il n'accepte pas de contributions
+extérieures** : les pull requests, les tickets et les discussions sont désactivés. Tu peux
+l'utiliser et, selon les termes de la licence MIT, le forker pour l'adapter à ton usage.
 
 ## Licence
 
